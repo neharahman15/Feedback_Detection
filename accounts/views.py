@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Feedback
 from .serializers import FeedbackSerializer
 from rest_framework import generics
+from .ml_utils import predict_emotion
 
 class SignupView(APIView):
     @method_decorator(csrf_exempt)
@@ -47,9 +48,21 @@ class LogoutView(APIView):
         logout(request)
         return Response({"message": "Logged out successfully."})
 
+
+
 class FeedbackCreateView(generics.CreateAPIView):
     serializer_class = FeedbackSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        text = serializer.validated_data['text']
+        sentiment = predict_emotion(text)
+        serializer.save(user=self.request.user, sentiment=sentiment)
+
+class EmotionDetectionAPI(APIView):
+    def post(self, request):
+        text = request.data.get('text')
+        if not text:
+            return Response({'error': 'Text is required'}, status=400)
+        emotion = predict_emotion(text)
+        return Response({'emotion': emotion})
